@@ -9,11 +9,7 @@ import logging
 
 
 def ensure_dir(directory):
-    try:
-        os.makedirs(directory)
-    except FileExistsError:
-        pass
-
+    os.makedirs(directory, exist_ok=True)
 
 def get_extension(image_url):
     return os.path.splitext(image_url)[1]
