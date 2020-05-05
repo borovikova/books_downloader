@@ -6,10 +6,12 @@ from urllib.parse import urljoin
 import json
 import argparse
 import logging
+from dotenv import load_dotenv
 
 
 def ensure_dir(directory):
     os.makedirs(directory, exist_ok=True)
+
 
 def get_extension(image_url):
     return os.path.splitext(image_url)[1]
@@ -74,8 +76,9 @@ def get_book_links(url):
     return links
 
 
-if __name__ == '__main__':
-    logging.basicConfig(level=logging.ERROR)
+def get_args():
+    load_dotenv()
+    file_path = os.getenv("FILE_PATH")
 
     parser = argparse.ArgumentParser(
         description='Parser for an online library tululu.org')
@@ -87,47 +90,57 @@ if __name__ == '__main__':
                         default='701',
                         type=int,
                         help='Page until which books should be parsed')
-    args = parser.parse_args()
+    parser.add_argument('--file_path',
+                        default=file_path,
+                        type=str,
+                        help='Filename (with extension) where the books metadata is stored')
+    return parser.parse_args()
+
+
+def collect_book_data(soup, html_page_url):
+    title, author = get_book_title_author(soup)
+    comments = get_book_comments(soup)
+    genres = get_book_genre(soup)
+    book_num = html_page_url.replace('http://tululu.org/b', '').replace('/', '')
+    img_url = get_image_url(soup)
+    img_path = download_image(img_url, book_num, folder='images/')
+    txt_version_url = 'http://tululu.org/txt.php?id={}'.format(book_num)
+    book_path = download_txt(txt_version_url, title, folder='books/')
+    return {
+        'title': title,
+        'author': author,
+        'img_src': img_path,
+        'book_path': book_path,
+        'comments': comments,
+        'genres': genres
+    }
+
+
+if __name__ == '__main__':
+    logging.basicConfig(level=logging.ERROR)
+    args = get_args()
 
     books_data = []
     all_links = []
 
-    try:
-        for num in range(args.start_page, args.end_page):
+    for num in range(args.start_page, args.end_page):
+        try:
             url = 'http://tululu.org/l55/{}/'.format(num)
             all_links.extend(get_book_links(url))
-
-        for url_html in all_links:
-            response = requests.get(url_html)
-            response.raise_for_status()
-            if response.url != 'http://tululu.org/':
+        except requests.exceptions.HTTPError as e:
+            logging.error('Can\'t download site page', exc_info=True)
+    else:
+        for html_page_url in all_links:
+            try:
+                response = requests.get(html_page_url)
+                response.raise_for_status()
+                if response.url == 'http://tululu.org/':
+                    continue
                 soup = BeautifulSoup(response.text, 'lxml')
-
-                title, author = get_book_title_author(soup)
-                comments = get_book_comments(soup)
-                genres = get_book_genre(soup)
-
-                book_num = url_html.replace(
-                    'http://tululu.org/b', '').replace('/', '')
-
-                img_url = get_image_url(soup)
-                img_path = download_image(img_url, book_num, folder='images/')
-
-                url_txt = 'http://tululu.org/txt.php?id={}'.format(book_num)
-                book_path = download_txt(url_txt, title, folder='books/')
-
-                book_data = {
-                    'title': title,
-                    'author': author,
-                    'img_src': img_path,
-                    'book_path': book_path,
-                    'comments': comments,
-                    'genres': genres
-                }
-
+                book_data = collect_book_data(soup, html_page_url)
                 books_data.append(book_data)
-    except requests.exceptions.HTTPError as e:
-        logging.error('Can\'t download a page', exc_info=True)
+            except requests.exceptions.HTTPError as e:
+                logging.error('Can\'t download book page, skipping')
 
-    with open('books.json', 'w') as my_file:
+    with open(args.file_path, 'w') as my_file:
         json.dump(books_data, my_file, ensure_ascii=False)
