@@ -127,20 +127,19 @@ if __name__ == '__main__':
         try:
             url = 'http://tululu.org/l55/{}/'.format(num)
             all_links.extend(get_book_links(url))
-        except requests.exceptions.HTTPError as e:
-            logging.error('Can\'t download site page', exc_info=True)
-    else:
-        for html_page_url in all_links:
-            try:
-                response = requests.get(html_page_url)
-                response.raise_for_status()
-                if response.url == 'http://tululu.org/':
-                    continue
-                soup = BeautifulSoup(response.text, 'lxml')
-                book_data = collect_book_data(soup, html_page_url)
-                books_data.append(book_data)
-            except requests.exceptions.HTTPError as e:
-                logging.error('Can\'t download book page, skipping')
+        except requests.exceptions.HTTPError:
+            logging.exception('Can\'t download site page')
+    for html_page_url in all_links:
+        try:
+            response = requests.get(html_page_url)
+            response.raise_for_status()
+            if response.url == 'http://tululu.org/':
+                continue
+            soup = BeautifulSoup(response.text, 'lxml')
+            book_data = collect_book_data(soup, html_page_url)
+            books_data.append(book_data)
+        except requests.exceptions.HTTPError:
+            logging.exception('Can\'t download book page, skipping')
 
     with open(args.file_path, 'w') as my_file:
         json.dump(books_data, my_file, ensure_ascii=False)
