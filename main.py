@@ -1,4 +1,5 @@
 import requests
+import hashlib
 import os
 from bs4 import BeautifulSoup
 from pathvalidate import sanitize_filename
@@ -47,26 +48,28 @@ def get_book_genre(soup):
         return [link.text for link in links]
 
 
-def download_image(url, filename, folder='images/'):
+def download_image(url, filename, folder='images'):
     response = requests.get(url)
     response.raise_for_status()
     raise_for_redirect(response)
     ensure_dir(folder)
     img_extension = get_extension(url)
-    path = os.path.join(folder, filename) + img_extension
+    hash_ = hashlib.md5(response.content).hexdigest()
+    path = os.path.join(folder, filename) + '_' + hash_ + img_extension
     with open(path, 'wb') as file:
         file.write(response.content)
     return path
 
 
-def download_txt(url, filename, folder='books/'):
+def download_txt(url, filename, folder='books'):
     response = requests.get(url)
     response.raise_for_status()
     raise_for_redirect(response)
     if 'text/plain' in response.headers['Content-Type']:
         ensure_dir(folder)
         sanitized_filename = sanitize_filename(filename)
-        path = os.path.join(folder, sanitized_filename) + '.txt'
+        hash_ = hashlib.md5(response.content).hexdigest()
+        path = os.path.join(folder, sanitized_filename) + '_' + hash_ + '.txt'
         with open(path, 'wb') as file:
             file.write(response.content)
         return path
@@ -112,9 +115,9 @@ def collect_book(soup, html_page_url):
     genres = get_book_genre(soup)
     book_num = html_page_url.replace('http://tululu.org/b', '').replace('/', '')
     img_url = get_image_url(soup, html_page_url)
-    img_path = download_image(img_url, book_num, folder='images/')
+    img_path = download_image(img_url, book_num, folder='images')
     txt_version_url = 'http://tululu.org/txt.php?id={}'.format(book_num)
-    book_path = download_txt(txt_version_url, title, folder='books/')
+    book_path = download_txt(txt_version_url, title, folder='books')
     return {
         'title': title,
         'author': author,
