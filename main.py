@@ -23,7 +23,7 @@ def get_extension(image_url):
     return os.path.splitext(image_url)[1]
 
 
-def get_book_title_author(soup):
+def get_book_title_and_author(soup):
     header = soup.select_one('h1').text
     title, author = header.split('::')
     return title.strip(), author.strip()
