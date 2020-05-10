@@ -26,13 +26,13 @@ def get_extension(image_url):
 def get_book_title_author(soup):
     header = soup.select_one('h1').text
     title, author = header.split('::')
-    return (title.strip(), author.strip())
+    return title.strip(), author.strip()
 
 
-def get_image_url(soup):
+def get_image_url(soup, html_page_url):
     selector = '.bookimage a img'
     img_relative_url = soup.select_one(selector)['src']
-    return urljoin('http://tululu.org', img_relative_url)
+    return urljoin(html_page_url, img_relative_url)
 
 
 def get_book_comments(soup):
@@ -81,7 +81,7 @@ def get_book_links(url):
     book_cards = soup.select('table.d_book')
     for card in book_cards:
         book_relative_url = card.select_one('a')['href']
-        links.append(urljoin('http://tululu.org', book_relative_url))
+        links.append(urljoin(url, book_relative_url))
     return links
 
 
@@ -106,12 +106,12 @@ def get_args():
     return parser.parse_args()
 
 
-def collect_book_data(soup, html_page_url):
+def collect_book(soup, html_page_url):
     title, author = get_book_title_author(soup)
     comments = get_book_comments(soup)
     genres = get_book_genre(soup)
     book_num = html_page_url.replace('http://tululu.org/b', '').replace('/', '')
-    img_url = get_image_url(soup)
+    img_url = get_image_url(soup, html_page_url)
     img_path = download_image(img_url, book_num, folder='images/')
     txt_version_url = 'http://tululu.org/txt.php?id={}'.format(book_num)
     book_path = download_txt(txt_version_url, title, folder='books/')
@@ -129,7 +129,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.ERROR)
     args = get_args()
 
-    books_data = []
+    books = []
     all_links = []
 
     for num in range(args.start_page, args.end_page):
@@ -146,10 +146,10 @@ if __name__ == '__main__':
             if response.url == 'http://tululu.org/':
                 continue
             soup = BeautifulSoup(response.text, 'lxml')
-            book_data = collect_book_data(soup, html_page_url)
-            books_data.append(book_data)
+            book = collect_book(soup, html_page_url)
+            books.append(book)
         except requests.exceptions.HTTPError:
             logging.exception('Can\'t download book page, skipping')
 
     with open(args.file_path, 'w') as my_file:
-        json.dump(books_data, my_file, ensure_ascii=False)
+        json.dump(books, my_file, ensure_ascii=False)
