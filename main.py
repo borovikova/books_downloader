@@ -23,7 +23,7 @@ def get_extension(image_url):
     return os.path.splitext(image_url)[1]
 
 
-def get_book_title_and_author(soup):
+def get_title_and_author(soup):
     header = soup.select_one('h1').text
     title, author = header.split('::')
     return title.strip(), author.strip()
@@ -107,7 +107,7 @@ def get_args():
 
 
 def collect_book(soup, html_page_url):
-    title, author = get_book_title_author(soup)
+    title, author = get_title_and_author(soup)
     comments = get_book_comments(soup)
     genres = get_book_genre(soup)
     book_num = html_page_url.replace('http://tululu.org/b', '').replace('/', '')
