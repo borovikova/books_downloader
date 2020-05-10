@@ -9,6 +9,12 @@ import logging
 from dotenv import load_dotenv
 
 
+def raise_for_redirect(response):
+    for record in response.history:
+        if record.status_code == 302:
+            raise requests.exceptions.HTTPError('Redirect occured')
+
+
 def ensure_dir(directory):
     os.makedirs(directory, exist_ok=True)
 
@@ -44,6 +50,7 @@ def get_book_genre(soup):
 def download_image(url, filename, folder='images/'):
     response = requests.get(url)
     response.raise_for_status()
+    raise_for_redirect(response)
     ensure_dir(folder)
     img_extension = get_extension(url)
     path = os.path.join(folder, filename) + img_extension
@@ -55,6 +62,7 @@ def download_image(url, filename, folder='images/'):
 def download_txt(url, filename, folder='books/'):
     response = requests.get(url)
     response.raise_for_status()
+    raise_for_redirect(response)
     if 'text/plain' in response.headers['Content-Type']:
         ensure_dir(folder)
         sanitized_filename = sanitize_filename(filename)
@@ -68,6 +76,7 @@ def get_book_links(url):
     links = []
     response = requests.get(url)
     response.raise_for_status()
+    raise_for_redirect(response)
     soup = BeautifulSoup(response.text, 'lxml')
     book_cards = soup.select('table.d_book')
     for card in book_cards:
@@ -133,6 +142,7 @@ if __name__ == '__main__':
         try:
             response = requests.get(html_page_url)
             response.raise_for_status()
+            raise_for_redirect(response)
             if response.url == 'http://tululu.org/':
                 continue
             soup = BeautifulSoup(response.text, 'lxml')
